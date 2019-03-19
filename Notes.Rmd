@@ -3,3 +3,13 @@ title: "Structural Equation Modelling class"
 output: html_notebook
 ---
 
+Close the back-door:
+
+If we want to know the causal 
+
+## 2nd day
+
+correlation = if coefficients are standarized
+covariance = if coefficients are not standarized
+
+Standarize = demean and divided by SD.
