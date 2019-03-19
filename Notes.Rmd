@@ -13,3 +13,124 @@ correlation = if coefficients are standarized
 covariance = if coefficients are not standarized
 
 Standarize = demean and divided by SD.
+
+
+```{r loading_libs}
+# devtools::install_github("jslefsche/piecewiseSEM@devel")
+
+library("lavaan")
+library("piecewiseSEM")
+library(tidyverse)
+
+
+## load data
+data(keeley)
+
+keeley
+
+skimr::skim(keeley)
+```
+
+First fit a linear model
+
+```{r}
+keeley_lm <- lm(cover ~ age, data = keeley)
+summary(keeley_lm)
+```
+
+```{r}
+# new model with lavaan
+# lavaan requires the formula to be a character string
+keeley_formula1 <- "cover ~ age"
+
+#then pass to function 'sem'
+keeley_sem1 <- sem(keeley_formula1, data = keeley)
+
+summary(keeley_sem1)
+
+## if you want to see the intercept
+summary(sem(keeley_formula1, data = keeley, meanstructure = T))
+```
+
+t-rule to our model: 3 knows (2 variances, 1 covarance) - 3 estimated ($\gamma_{1,1}, \zeta_1, \delta_1$)= 0
+
+The function does not return the standarized coeficients by default, one needs to use `coef`
+
+```{r}
+# get standardized coefficients of LM
+coefs(keeley_lm)
+
+# get standardized coefficeients of SEM using argument standardized = T in summary or the function 'standardizesoluion'
+summary(keeley_sem1, standardized = T)
+standardizedsolution(keeley_sem1)
+
+# to get the R-squared, use the argument `rsq = T` in summary
+summary(keeley_sem1, rsq = TRUE)
+
+# compare to output from LM
+summary(keeley_lm)$r.squared
+```
+
+## Next model
+
+```{r}
+formula2 <- "
+  firesev ~ age
+  cover ~ age + firesev"
+
+sem2 <- sem(formula2, data = keeley)
+summary(sem2, standardize = TRUE, rsq = TRUE)
+
+
+```
+
+Computing indirect effects:
+```{r}
+# in lavaan, can use identifiers for model coefficients int he fomrula
+formula2.1 <- "
+  firesev ~ af * age
+  cover ~ ac * age + fc * firesev
+
+  indirect := af * fc # := opeerator adds coefficients
+  total := ac + af * fc"
+
+summary(sem(formula2.1, keeley), standardize = TRUE)
+
+```
+
+### Exercise 1
+
+```{r}
+formula3 <- "
+  rich ~ ar * abiotic + dr * distance + hr * hetero
+  abiotic ~ da* distance
+  hetero ~ dh* distance
+
+  indirect1 := ar * da
+  indirect2 := dh * hr
+  total := dr + ar * da + dh * hr
+"
+
+sem3 <- sem(formula3, data = keeley)
+
+summary(sem3, standardize = TRUE)
+```
+
+
+## Some visualization
+
+```{r}
+g <- standardizedsolution(sem3) %>% 
+    filter(op == "~") %>% 
+    select(-op) %>%
+    select(rhs, lhs, est.std, se, z, pvalue) %>%
+    igraph::graph_from_data_frame()
+
+plot(g,
+     edge.color = c("red", "black")[1 + (igraph::E(g)$est.std > 0)],
+     edge.lty = c("solid", "dashed")[1 + (igraph::E(g)$pvalue > 0.05)],
+     edge.label = round(igraph::E(g)$est.std, 2),
+     edge.width = igraph::E(g)$est.std)
+
+```
+
